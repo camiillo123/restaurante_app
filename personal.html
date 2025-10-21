@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panel del Personal - Restaurante Gourmet</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" />
+
+  <script>
+    
+    function registerStaff() {
+      const name = document.getElementById("regName").value.trim();
+      const email = document.getElementById("regEmail").value.trim().toLowerCase();
+      const pass = document.getElementById("regPass").value.trim();
+
+      if (!name || !email || !pass) {
+        alert("Por favor completa todos los campos.");
+        return;
+      }
+
+      let users = JSON.parse(localStorage.getItem("users") || "[]");
+
+      if (users.some(u => u.email === email)) {
+        alert("Ya existe un usuario con ese correo.");
+        return;
+      }
+
+      const newUser = { name, email, pass, role: "staff" };
+      users.push(newUser);
+      localStorage.setItem("users", JSON.stringify(users));
+
+      alert("✅ Registro exitoso. Ahora puedes iniciar sesión.");
+      document.getElementById("regName").value = "";
+      document.getElementById("regEmail").value = "";
+      document.getElementById("regPass").value = "";
+    }
+
+    
+    function loginStaff() {
+      const email = document.getElementById("logEmail").value.trim().toLowerCase();
+      const pass = document.getElementById("logPass").value.trim();
+
+      if (!email || !pass) {
+        alert("Ingresa correo y contraseña.");
+        return;
+      }
+
+      const users = JSON.parse(localStorage.getItem("users") || "[]");
+      const user = users.find(u => u.email === email && u.pass === pass && u.role === "staff");
+
+      if (!user) {
+        alert("❌ Usuario no encontrado o contraseña incorrecta.");
+        return;
+      }
+
+      localStorage.setItem("currentUser", JSON.stringify(user));
+      alert(`Bienvenido, ${user.name}`);
+      mostrarPanel();
+    }
+
+    
+    function logout() {
+      localStorage.removeItem("currentUser");
+      location.reload();
+    }
+
+   
+    function mostrarPanel() {
+      document.getElementById("auth").classList.add("hidden");
+      document.getElementById("app").classList.remove("hidden");
+      cargarReservas();
+      cargarNotificacionesReservas();
+    }
+
+   
+    function cargarReservas() {
+      const reservas = JSON.parse(localStorage.getItem("reservas") || "[]");
+      const contenedor = document.getElementById("reservasList");
+
+      if (reservas.length === 0) {
+        contenedor.innerHTML = '<p class="text-gray-500">No hay reservas pendientes.</p>';
+        return;
+      }
+
+      contenedor.innerHTML = reservas
+        .map(
+          (r, i) => `
+        <div class="bg-white p-4 rounded-lg shadow mb-3">
+          <h3 class="font-semibold text-lg">${r.cliente}</h3>
+          <p><strong>Correo:</strong> ${r.email}</p>
+          <p><strong>Hora:</strong> ${r.hora}</p>
+          <p><strong>Estado:</strong> ${r.estado}</p>
+          <p><strong>Total:</strong> $${r.total.toFixed(2)} | <strong>Abono:</strong> $${r.abono.toFixed(2)}</p>
+          <p class="mt-2"><strong>Pedido:</strong></p>
+          <ul class="list-disc ml-5 mb-2">
+            ${r.pedido.map(p => `<li>${p.nombre} - $${p.precio.toFixed(2)}</li>`).join("")}
+          </ul>
+          <div class="flex gap-2">
+            <button onclick="actualizarEstado(${i}, 'Aceptada')" class="bg-green-600 text-white px-3 py-1 rounded">Aceptar</button>
+            <button onclick="actualizarEstado(${i}, 'Rechazada')" class="bg-red-600 text-white px-3 py-1 rounded">Rechazar</button>
+          </div>
+        </div>
+      `
+        )
+        .join("");
+    }
+
+   
+    function actualizarEstado(index, estado) {
+      let reservas = JSON.parse(localStorage.getItem("reservas") || "[]");
+      reservas[index].estado = estado;
+      localStorage.setItem("reservas", JSON.stringify(reservas));
+
+  
+      const notificaciones = JSON.parse(localStorage.getItem("notifications") || "[]");
+      const reserva = reservas[index];
+      const mensaje =
+        estado === "Aceptada"
+          ? `✅ Tu reserva para las ${reserva.hora} fue ACEPTADA.`
+          : `❌ Tu reserva para las ${reserva.hora} fue RECHAZADA.`;
+      notificaciones.push({ to: reserva.email, msg: mensaje });
+      localStorage.setItem("notifications", JSON.stringify(notificaciones));
+
+      alert(`Reserva ${estado.toLowerCase()} y notificación enviada.`);
+      cargarReservas();
+    }
+
+    
+    function enviarNotificacionManual() {
+      const correo = document.getElementById("notifEmail").value.trim();
+      const mensaje = document.getElementById("notifMsg").value.trim();
+
+      if (!correo || !mensaje) {
+        alert("Completa ambos campos antes de enviar.");
+        return;
+      }
+
+      const notificaciones = JSON.parse(localStorage.getItem("notifications") || "[]");
+      notificaciones.push({ to: correo, msg: mensaje });
+      localStorage.setItem("notifications", JSON.stringify(notificaciones));
+
+      alert("📩 Notificación enviada correctamente.");
+      document.getElementById("notifEmail").value = "";
+      document.getElementById("notifMsg").value = "";
+    }
+
+    
+    function cargarNotificacionesReservas() {
+      const reservas = JSON.parse(localStorage.getItem("reservas") || "[]");
+console.log(reservas);
+
+      const contenedor = document.getElementById("notificacionesReservas");
+
+      if (reservas.length === 0) {
+        contenedor.innerHTML = '<p class="text-gray-500">No hay notificaciones nuevas.</p>';
+        return;
+      }
+
+      contenedor.innerHTML = reservas
+        .map(
+          (r) => `
+        <div class="bg-yellow-100 p-3 rounded-lg shadow mb-2">
+          <p>📅 <strong>Nueva reserva:</strong> ${r.cliente} (${r.email})</p>
+          <p>🕒 <strong>Hora:</strong> ${r.hora}</p>
+          <p>💰 <strong>Total:</strong> $${r.total.toFixed(2)} | Abono: $${r.abono.toFixed(2)}</p>
+          <p>📦 <strong>Platillos:</strong> ${r.pedido.map(p => p.nombre).join(", ")}</p>
+        </div>
+      `
+        )
+        .join("");
+    }
+
+    
+    window.onload = () => {
+      const user = JSON.parse(localStorage.getItem("currentUser"));
+      if (user && user.role === "staff") {
+        mostrarPanel();
+      }
+    };
+  </script>
+</head>
+
+<body class="bg-gray-50 min-h-screen">
+
+  
+  <div class="text-center mt-4">
+    <a href="comensal.html" class="text-blue-600 underline hover:text-blue-800">
+      Ir a página de Comensal
+    </a>
+  </div>
+
+  
+  <div id="auth" class="max-w-md mx-auto mt-6 bg-white p-6 rounded-xl shadow">
+    <h2 class="text-2xl font-bold text-center mb-4">Panel del Personal</h2>
+
+ 
+    <div class="mb-4">
+      <h3 class="font-semibold mb-2">Iniciar sesión</h3>
+      <input id="logEmail" type="email" placeholder="Correo" class="border p-2 w-full mb-2" />
+      <input id="logPass" type="password" placeholder="Contraseña" class="border p-2 w-full mb-2" />
+      <button onclick="loginStaff()" class="bg-green-600 text-white px-4 py-2 rounded w-full">Entrar</button>
+    </div>
+
+    <hr class="my-4" />
+
+    
+    <div>
+      <h3 class="font-semibold mb-2">Registrarse</h3>
+      <input id="regName" type="text" placeholder="Nombre completo" class="border p-2 w-full mb-2" />
+      <input id="regEmail" type="email" placeholder="Correo" class="border p-2 w-full mb-2" />
+      <input id="regPass" type="password" placeholder="Contraseña" class="border p-2 w-full mb-2" />
+      <button onclick="registerStaff()" class="bg-blue-600 text-white px-4 py-2 rounded w-full">Crear cuenta</button>
+    </div>
+  </div>
+
+ 
+  <div id="app" class="hidden max-w-3xl mx-auto p-6">
+    <div class="flex justify-between items-center mb-4">
+      <h1 class="text-2xl font-bold">👩‍🍳 Panel del Personal</h1>
+      <div class="flex gap-4 items-center">
+        <a href="comensal.html" class="text-blue-600 hover:underline">Ir a Comensal</a>
+        <button onclick="logout()" class="text-red-600">Cerrar sesión</button>
+      </div>
+    </div>
+    
+    ;
+
+  
+    <section class="bg-white p-4 rounded-lg shadow mb-4">
+      <h2 class="text-xl font-semibold mb-2">📋 Reservas recibidas</h2>
+      <div id="reservasList"></div>
+    </section>
+<div class="max-w-2xl mx-auto mt-6 bg-gray-50 p-4 rounded-lg shadow">
+  <h2 class="text-2xl font-bold mb-4 text-center">📋 Reservas Realizadas</h2>
+  <div id="reservasList"></div>
+</div>
+<script>
+  function mostrarReservas() {
+    const reservas = JSON.parse(localStorage.getItem('reservas') || '[]');
+    const contenedor = document.getElementById('reservasList');
+
+    if (reservas.length === 0) {
+      contenedor.innerHTML = '<p class="text-gray-500">No hay reservas registradas.</p>';
+      return;
+    }
+
+    contenedor.innerHTML = reservas.map((r, i) => `
+      <div class="p-4 mb-3 bg-white rounded shadow">
+        <h3 class="font-semibold text-lg">Reserva #${i + 1}</h3>
+        <p>👤 <strong>Cliente:</strong> ${r.cliente}</p>
+        <p>📧 <strong>Email:</strong> ${r.email}</p>
+        <p>🕒 <strong>Hora:</strong> ${r.hora}</p>
+        <p>🍽️ <strong>Pedido:</strong></p>
+        <ul class="list-disc list-inside mb-2">
+          ${r.pedido.map(p => `<li>${p.nombre} - $${p.precio.toFixed(2)}</li>`).join('')}
+        </ul>
+        <p><strong>Total:</strong> $${r.total.toFixed(2)}</p>
+        <p><strong>Abono (50%):</strong> $${r.abono.toFixed(2)}</p>
+        <p><strong>Estado:</strong> <span id="estado-${i}" class="text-blue-600">${r.estado}</span></p>
+        <button onclick="cambiarEstado(${i})" class="mt-2 bg-green-600 text-white px-3 py-1 rounded">Marcar como completada</button>
+      </div>
+    `).join('');
+  }
+
+  function cambiarEstado(index) {
+    let reservas = JSON.parse(localStorage.getItem('reservas') || '[]');
+    reservas[index].estado = 'Completada';
+    localStorage.setItem('reservas', JSON.stringify(reservas));
+    mostrarReservas();
+  }
+
+  window.onload = mostrarReservas;
+</script>
+
+    <section class="bg-white p-4 rounded-lg shadow">
+      <h2 class="text-xl font-semibold mb-2">✉️ Enviar notificación manual al comensal</h2>
+      <input id="notifEmail" type="email" placeholder="Correo del comensal" class="border p-2 w-full mb-2" />
+      <textarea id="notifMsg" placeholder="Mensaje" class="border p-2 w-full mb-2"></textarea>
+      <button onclick="enviarNotificacionManual()" class="bg-indigo-600 text-white px-4 py-2 rounded w-full">Enviar</button>
+    </section>
+  </div>
+</body>
+</html>
+

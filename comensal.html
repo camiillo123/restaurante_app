@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Comensal - Restaurante Gourmet</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" />
+
+  <script>
+  
+    function register() {
+      const name = document.getElementById('regName').value.trim();
+      const email = document.getElementById('regEmail').value.trim().toLowerCase();
+      const pass = document.getElementById('regPass').value.trim();
+      if (!name || !email || !pass) return alert('Completa todos los campos');
+
+      let users = JSON.parse(localStorage.getItem('users') || '[]');
+      if (users.find(u => u.email === email)) return alert('Usuario ya registrado');
+
+      users.push({ name, email, pass, role: 'customer' });
+      localStorage.setItem('users', JSON.stringify(users));
+      alert('✅ Registro exitoso, ahora puedes iniciar sesión.');
+    }
+
+ 
+    function login() {
+      const email = document.getElementById('logEmail').value.trim().toLowerCase();
+      const pass = document.getElementById('logPass').value.trim();
+      let users = JSON.parse(localStorage.getItem('users') || '[]');
+      let user = users.find(u => u.email === email && u.pass === pass && u.role === 'customer');
+      if (!user) return alert('Credenciales incorrectas');
+      localStorage.setItem('currentUser', JSON.stringify(user));
+      location.reload();
+    }
+
+    function logout() {
+      localStorage.removeItem('currentUser');
+      location.reload();
+    }
+
+   
+    const menu = [
+      { nombre: 'Pizza Margarita', precio: 10500, descripcion: 'Queso mozzarella, tomate y albahaca fresca.' },
+      { nombre: 'Hamburguesa Clásica', precio: 8500, descripcion: 'Carne jugosa con lechuga, tomate y queso cheddar.' },
+      { nombre: 'Pasta Carbonara', precio: 9700, descripcion: 'Espaguetis con panceta, huevo y queso parmesano.' },
+      { nombre: 'Ensalada César', precio: 6500, descripcion: 'Lechuga romana, pollo, crutones y aderezo César.' },
+      { nombre: 'Sushi Variado', precio: 12000, descripcion: 'Rollos surtidos de salmón, atún y aguacate.' }
+    ];
+
+    let pedido = [];
+
+    function mostrarMenu() {
+      const contenedor = document.getElementById('menuList');
+      contenedor.innerHTML = menu.map((item, i) => `
+        <div class='p-4 border rounded-lg mb-3 bg-white shadow'>
+          <h3 class='font-semibold text-lg'>${item.nombre}</h3>
+          <p>${item.descripcion}</p>
+          <p class='text-green-700 font-bold'>$${item.precio.toFixed(2)}</p>
+          <button onclick="agregarAlPedido(${i})" class='bg-blue-600 text-white px-3 py-1 mt-2 rounded'>Agregar al pedido</button>
+        </div>
+      `).join('');
+    }
+
+    function agregarAlPedido(index) {
+      pedido.push(menu[index]);
+      mostrarPedido();
+    }
+
+    function mostrarPedido() {
+      const contenedor = document.getElementById('pedidoList');
+      if (pedido.length === 0) {
+        contenedor.innerHTML = '<p class="text-gray-500">Aún no has agregado platillos.</p>';
+        return;
+      }
+      let total = pedido.reduce((sum, p) => sum + p.precio, 0);
+      contenedor.innerHTML = `
+        <ul class='mb-2'>
+          ${pedido.map(p => `<li>🍴 ${p.nombre} - $${p.precio.toFixed(2)}</li>`).join('')}
+        </ul>
+        <p class='font-semibold'>Total: $${total.toFixed(2)}</p>
+        <p class='text-green-700 font-semibold'>Abono del 50%: $${(total * 0.5).toFixed(2)}</p>
+      `;
+    }
+
+   
+    function reservar() {
+      const user = JSON.parse(localStorage.getItem('currentUser'));
+      if (!user) return alert('Debes iniciar sesión primero.');
+      if (pedido.length === 0) return alert('Agrega al menos un platillo antes de reservar.');
+
+      const hora = document.getElementById('horaReserva').value;
+      if (!hora) return alert('Selecciona una hora válida.');
+
+      let total = pedido.reduce((sum, p) => sum + p.precio, 0);
+      let abono = total * 0.5;
+
+      const reservas = JSON.parse(localStorage.getItem('reservas') || '[]');
+      reservas.push({
+        cliente: user.name,
+        email: user.email,
+        hora,
+        pedido,
+        total,
+        abono,
+        estado: 'Pendiente'
+      });
+      localStorage.setItem('reservas', JSON.stringify(reservas));
+
+      alert('✅ Reserva realizada correctamente. Has abonado el 50%.');
+      pedido = [];
+      mostrarPedido();
+    }
+
+    
+    function mostrarNotificaciones() {
+      const user = JSON.parse(localStorage.getItem('currentUser'));
+      const notificaciones = JSON.parse(localStorage.getItem('notifications') || '[]');
+      const userNotifs = notificaciones.filter(n => n.to === user.email);
+      const contenedor = document.getElementById('notifList');
+      contenedor.innerHTML = userNotifs.length
+        ? userNotifs.map(n => `<div class='p-2 bg-green-100 rounded mb-2'>${n.msg}</div>`).join('')
+        : '<p class="text-gray-500">No tienes notificaciones nuevas.</p>';
+    }
+
+    window.onload = () => {
+      const user = JSON.parse(localStorage.getItem('currentUser'));
+      if (user && user.role === 'customer') {
+        document.getElementById('auth').classList.add('hidden');
+        document.getElementById('app').classList.remove('hidden');
+        mostrarMenu();
+        mostrarPedido();
+        mostrarNotificaciones();
+      }
+    };
+  </script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+  <div class="text-center mt-4">
+    <a href="personal.html" class="text-blue-600 underline hover:text-blue-800">
+      Ir al Panel del Personal 👩‍🍳
+    </a>
+  </div>
+
+  <div id="auth" class="max-w-md mx-auto mt-6 bg-white p-6 rounded-xl shadow">
+    <h2 class="text-2xl font-bold text-center mb-4">Bienvenido a Restaurante Gourmet</h2>
+
+    <div class="mb-4">
+      <h3 class="font-semibold mb-2">Iniciar sesión</h3>
+      <input id="logEmail" type="email" placeholder="Correo" class="border p-2 w-full mb-2" />
+      <input id="logPass" type="password" placeholder="Contraseña" class="border p-2 w-full mb-2" />
+      <button onclick="login()" class="bg-green-600 text-white px-4 py-2 rounded w-full">Entrar</button>
+    </div>
+
+    <div>
+      <h3 class="font-semibold mb-2">Registrarse</h3>
+      <input id="regName" type="text" placeholder="Nombre completo" class="border p-2 w-full mb-2" />
+      <input id="regEmail" type="email" placeholder="Correo" class="border p-2 w-full mb-2" />
+      <input id="regPass" type="password" placeholder="Contraseña" class="border p-2 w-full mb-2" />
+      <button onclick="register()" class="bg-blue-600 text-white px-4 py-2 rounded w-full">Crear cuenta</button>
+    </div>
+  </div>
+
+  <div id="app" class="hidden max-w-2xl mx-auto p-6">
+    <div class="flex justify-between items-center mb-4">
+      <h1 class="text-2xl font-bold">🍽️ Restaurante Gourmet</h1>
+      <div class="flex gap-4 items-center">
+        <a href="personal.html" class="text-blue-600 hover:underline">Ir al Panel del Personal</a>
+        <button onclick="logout()" class="text-red-600">Cerrar sesión</button>
+      </div>
+    </div>
+
+    <section class="bg-white p-4 rounded-lg shadow mb-4">
+      <h2 class="text-xl font-semibold mb-2">Menú</h2>
+      <div id="menuList"></div>
+    </section>
+
+    <section class="bg-white p-4 rounded-lg shadow mb-4">
+      <h2 class="text-xl font-semibold mb-2">Tu pedido</h2>
+      <div id="pedidoList"></div>
+    </section>
+
+    <section class="bg-white p-4 rounded-lg shadow mb-4">
+      <h2 class="text-xl font-semibold mb-2">Reservar mesa</h2>
+      <label class="block mb-2">Hora de reserva:</label>
+      <input id="horaReserva" type="time" class="border p-2 rounded w-full mb-3" />
+      <button onclick="reservar()" class="bg-green-500 text-white px-4 py-2 rounded">Confirmar reserva</button>
+    </section>
+
+    <section class="bg-white p-4 rounded-lg shadow">
+      <h2 class="text-xl font-semibold mb-2">Notificaciones</h2>
+      <div id="notifList"></div>
+    </section>
+  </div>
+</body>
+</html>
